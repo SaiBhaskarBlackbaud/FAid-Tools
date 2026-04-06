@@ -76,7 +76,7 @@ def detect_our_product(page_text: str, hrefs: list[str]) -> bool:
     return False
 
 
-def detect_competitors(page_text: str, hrefs: list[str]) -> list[str]:
+def detect_competitors(page_text: str, hrefs: list[str], url: str = "") -> list[str]:
     """
     Return a list of detected competitor names (may be empty).
 
@@ -86,6 +86,13 @@ def detect_competitors(page_text: str, hrefs: list[str]) -> list[str]:
         The full visible text of the page.
     hrefs : list[str]
         All href attribute values collected from <a> tags on the page.
+    url : str
+        The URL of the page being analyzed (optional).
+
+    Returns
+    -------
+    list[str]
+        A list of detected competitor names.
     """
     found: set[str] = set()
 
@@ -95,7 +102,7 @@ def detect_competitors(page_text: str, hrefs: list[str]) -> list[str]:
         # Check text keywords
         for keyword in competitor.get("keywords", []):
             if _text_contains_keyword(page_text, keyword):
-                logger.debug("Competitor keyword found: %r → %s", keyword, name)
+                logger.debug("Competitor keyword found: %r → %s (url: %s)", keyword, name, url)
                 found.add(name)
                 break  # no need to check more keywords for this competitor
 
@@ -103,12 +110,13 @@ def detect_competitors(page_text: str, hrefs: list[str]) -> list[str]:
         for href in hrefs:
             for domain in competitor.get("domains", []):
                 if _domain_matches(href, domain):
-                    logger.debug(
-                        "Competitor domain found in href: %r (domain: %s) → %s",
-                        href,
-                        domain,
-                        name,
-                    )
+                    # print(
+                    #     "Competitor domain found in href: %r (domain: %s) → %s (url: %s)",
+                    #     href,
+                    #     domain,
+                    #     name,
+                    #     url,
+                    # )
                     found.add(name)
 
     return sorted(found)
@@ -131,18 +139,26 @@ def analyze_pages(pages: list[dict]) -> dict:
     """
     uses_our_product = False
     all_competitors: set[str] = set()
+    competitor_url = ""
+    our_product_url = ""
 
     for page in pages:
         text = page.get("text", "")
         hrefs = page.get("hrefs", [])
+        url = page.get("url", "")
 
         if not uses_our_product and detect_our_product(text, hrefs):
             uses_our_product = True
+            our_product_url = url
 
-        competitors = detect_competitors(text, hrefs)
+        competitors = detect_competitors(text, hrefs, url)
+        if competitors and not competitor_url:
+            competitor_url = url
         all_competitors.update(competitors)
 
     return {
         "uses_our_product": uses_our_product,
         "competitors": sorted(all_competitors),
+        "competitor_url": competitor_url,
+        "our_product_url": our_product_url,
     }

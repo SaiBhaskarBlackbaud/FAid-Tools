@@ -24,6 +24,8 @@ COLUMNS = [
     "School Website",
     "Status (Yes/No)",
     "Lost To (Competitor)",
+    "Competitor Found On (URL)",
+    "Our Product Found On (URL)",
 ]
 
 
@@ -36,8 +38,10 @@ def _format_row(result: dict) -> list[str]:
     """
     uses_our = result.get("uses_our_product", False)
     competitors: list[str] = result.get("competitors", [])
+    competitor_url = result.get("competitor_url", "")
+    our_product_url = result.get("our_product_url", "")
 
-    status = "Yes" if uses_our else "No"
+    status = "Yes" if uses_our and not competitors else "No"
     lost_to = ", ".join(competitors) if competitors else ("" if uses_our else "Unknown")
 
     return [
@@ -45,6 +49,8 @@ def _format_row(result: dict) -> list[str]:
         result.get("school_website", ""),
         status,
         lost_to,
+        competitor_url,
+        our_product_url,
     ]
 
 

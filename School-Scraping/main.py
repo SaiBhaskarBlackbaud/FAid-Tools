@@ -121,6 +121,8 @@ def process_school(school: dict, depth: int) -> dict:
             "school_website": url,
             "uses_our_product": False,
             "competitors": [],
+            "competitor_url": "",
+            "our_product_url": "",
         }
 
     analysis = analyze_pages(pages)
@@ -130,6 +132,8 @@ def process_school(school: dict, depth: int) -> dict:
         "school_website": url,
         "uses_our_product": analysis["uses_our_product"],
         "competitors": analysis["competitors"],
+        "competitor_url": analysis.get("competitor_url", ""),
+        "our_product_url": analysis.get("our_product_url", ""),
     }
 
 

@@ -134,15 +134,15 @@ COMPETITORS = [
             "renweb.com",
         ],
     },
-    {
-        "name": "Finalsite",
-        "keywords": [
-            "Finalsite",
-        ],
-        "domains": [
-            "finalsite.com",
-        ],
-    },
+    # {
+    #     "name": "Finalsite",
+    #     "keywords": [
+    #         "Finalsite",
+    #     ],
+    #     "domains": [
+    #         "finalsite.com",
+    #     ],
+    # },
     {
         "name": "SchoolAdmin",
         "keywords": [
@@ -259,10 +259,10 @@ RELEVANT_PAGE_KEYWORDS = [
 # ---------------------------------------------------------------------------
 
 # Maximum number of levels to crawl below the homepage (0 = homepage only)
-DEFAULT_CRAWL_DEPTH = 2
+DEFAULT_CRAWL_DEPTH = 3
 
 # Seconds to wait between HTTP requests (be respectful to school servers)
-REQUEST_DELAY_SECONDS = 2
+REQUEST_DELAY_SECONDS = 1
 
 # HTTP request timeout in seconds
 REQUEST_TIMEOUT_SECONDS = 15

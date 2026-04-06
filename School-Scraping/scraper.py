@@ -10,6 +10,7 @@ import logging
 import time
 from collections import deque
 from urllib.parse import urljoin, urlparse
+from detector import detect_competitors, detect_our_product
 
 import requests
 import urllib3
@@ -133,12 +134,19 @@ def scrape_school(
     """
     Crawl a school website up to *depth* levels and return scraped page data.
 
+    Phase 1 — visits the homepage and all pages whose URL path matches
+    financial-aid / admissions keywords.  Stops as soon as a product keyword
+    or competitor is detected.
+
+    Phase 2 — only entered if Phase 1 found nothing.  Visits the remaining
+    (non-relevant-URL) pages collected during Phase 1 link discovery.
+
     Parameters
     ----------
     url : str
         The school's homepage URL.
     depth : int
-        Maximum crawl depth (0 = homepage only, 2 = default).
+        Maximum crawl depth (0 = homepage only).
 
     Returns
     -------
@@ -148,53 +156,80 @@ def scrape_school(
     session = _make_session()
     pages: list[dict] = []
     visited: set[str] = set()
+    non_relevant_urls: set[str] = set()  # collected during Phase 1 for Phase 2
 
-    # BFS queue: (url, current_depth)
-    # Seed with the homepage at depth 0
-    queue: deque[tuple[str, int]] = deque()
-    queue.append((_normalize_url(url), 0))
+    # ------------------------------------------------------------------
+    # Phase 1 — homepage + relevant-URL pages only
+    # ------------------------------------------------------------------
+    phase1_queue: deque[tuple[str, int]] = deque()
+    phase1_queue.append((_normalize_url(url), 0))
 
-    # Collect relevant-looking URLs first so we visit them with priority;
-    # non-relevant URLs are deferred to the end of the queue.
-    deferred: deque[tuple[str, int]] = deque()
+    found_match = False
 
-    while (queue or deferred) and len(pages) < MAX_PAGES_PER_SCHOOL:
-        # Prefer relevant URLs; fall back to deferred once queue is empty
-        if queue:
-            current_url, current_depth = queue.popleft()
-        else:
-            current_url, current_depth = deferred.popleft()
+    while phase1_queue and len(pages) < MAX_PAGES_PER_SCHOOL:
+        current_url, current_depth = phase1_queue.popleft()
 
         if current_url in visited:
             continue
         visited.add(current_url)
 
-        logger.debug("Fetching (%d/%d): %s", len(pages) + 1, MAX_PAGES_PER_SCHOOL, current_url)
+        logger.debug("[Phase 1] Fetching (%d/%d): %s", len(pages) + 1, MAX_PAGES_PER_SCHOOL, current_url)
 
         text, hrefs, internal_links = _fetch_page(session, current_url)
-
         if not text:
-            # Skip pages we couldn't fetch
             continue
 
         pages.append({"url": current_url, "text": text, "hrefs": hrefs})
 
-        # Respect rate limiting
+        if detect_our_product(text, hrefs) or detect_competitors(text, hrefs, current_url):
+            logger.info("Match detected on %s — stopping crawl early.", current_url)
+            found_match = True
+            break
+
         time.sleep(REQUEST_DELAY_SECONDS)
 
-        # Enqueue child links if we haven't reached max depth
         if current_depth < depth:
             for link in internal_links:
                 if link not in visited:
                     if _is_relevant_url(link):
-                        queue.append((link, current_depth + 1))
+                        phase1_queue.append((link, current_depth + 1))
                     else:
-                        deferred.append((link, current_depth + 1))
+                        non_relevant_urls.add(link)
 
+    if found_match:
+        logger.info("Crawled %d page(s) for %s (depth=%d)", len(pages), url, depth)
+        return pages
+
+    # ------------------------------------------------------------------
+    # Phase 2 — non-relevant pages collected during Phase 1
+    # ------------------------------------------------------------------
     logger.info(
-        "Crawled %d page(s) for %s (depth=%d)",
-        len(pages),
-        url,
-        depth,
+        "No match in relevant pages — checking %d non-relevant page(s).",
+        len(non_relevant_urls),
     )
+
+    phase2_queue: deque[str] = deque(u for u in non_relevant_urls if u not in visited)
+
+    while phase2_queue and len(pages) < MAX_PAGES_PER_SCHOOL:
+        current_url = phase2_queue.popleft()
+
+        if current_url in visited:
+            continue
+        visited.add(current_url)
+
+        logger.debug("[Phase 2] Fetching (%d/%d): %s", len(pages) + 1, MAX_PAGES_PER_SCHOOL, current_url)
+
+        text, hrefs, internal_links = _fetch_page(session, current_url)
+        if not text:
+            continue
+
+        pages.append({"url": current_url, "text": text, "hrefs": hrefs})
+
+        if detect_our_product(text, hrefs) or detect_competitors(text, hrefs, current_url):
+            logger.info("Match detected on %s — stopping crawl early.", current_url)
+            break
+
+        time.sleep(REQUEST_DELAY_SECONDS)
+
+    logger.info("Crawled %d page(s) for %s (depth=%d)", len(pages), url, depth)
     return pages
