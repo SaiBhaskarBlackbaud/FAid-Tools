@@ -66,11 +66,22 @@ def _read_schools(input_file: str) -> list[dict]:
         sys.exit(1)
 
     schools: list[dict] = []
-    with open(input_file, newline="", encoding="utf-8") as f:
+    with open(input_file, newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
-        for row in reader:
-            name = row.get("School Name", "").strip()
-            url = row.get("School Website", "").strip()
+        for raw_row in reader:
+            # Normalize keys and values to tolerate slightly malformed CSV rows.
+            # csv.DictReader may return lists for values when a row has more
+            # columns than headers; coerce lists to comma-joined strings.
+            row = {}
+            for k, v in raw_row.items():
+                key = (k or "").strip()
+                if isinstance(v, list):
+                    val = ",".join(str(x) for x in v).strip()
+                else:
+                    val = (v or "").strip()
+                row[key] = val
+            name = row.get("School Name", "")
+            url = row.get("School Website", "")
             if name and url:
                 schools.append({"name": name, "url": url})
             else:

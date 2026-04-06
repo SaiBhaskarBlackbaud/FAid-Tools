@@ -252,6 +252,7 @@ RELEVANT_PAGE_KEYWORDS = [
     "aid",
     "scholarship",
     "grant",
+    "Tuition and Fees",
 ]
 
 # ---------------------------------------------------------------------------
@@ -259,7 +260,7 @@ RELEVANT_PAGE_KEYWORDS = [
 # ---------------------------------------------------------------------------
 
 # Maximum number of levels to crawl below the homepage (0 = homepage only)
-DEFAULT_CRAWL_DEPTH = 3
+DEFAULT_CRAWL_DEPTH = 5
 
 # Seconds to wait between HTTP requests (be respectful to school servers)
 REQUEST_DELAY_SECONDS = 1
