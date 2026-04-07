@@ -120,10 +120,11 @@ def process_school(school: dict, depth: int) -> dict:
     logging.info("Scraping: %s (%s)", name, url)
 
     try:
-        pages = scrape_school(url, depth=depth)
+        pages, access_errors = scrape_school(url, depth=depth)
     except Exception as exc:
         logging.error("Unexpected error scraping %s: %s", url, exc)
         pages = []
+        access_errors = [str(exc)]
 
     if not pages:
         logging.warning("No pages retrieved for %s — marking as unknown.", name)
@@ -134,6 +135,7 @@ def process_school(school: dict, depth: int) -> dict:
             "competitors": [],
             "competitor_url": "",
             "our_product_url": "",
+            "access_errors": access_errors,
         }
 
     analysis = analyze_pages(pages)
@@ -145,6 +147,7 @@ def process_school(school: dict, depth: int) -> dict:
         "competitors": analysis["competitors"],
         "competitor_url": analysis.get("competitor_url", ""),
         "our_product_url": analysis.get("our_product_url", ""),
+        "access_errors": access_errors,
     }
 
 

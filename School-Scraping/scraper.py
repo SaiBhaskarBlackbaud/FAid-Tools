@@ -137,25 +137,57 @@ def _follow_client_side_redirect(soup: "BeautifulSoup", base_url: str) -> str | 
     return None
 
 
-def _fetch_page(session: requests.Session, url: str) -> tuple[str, str, list[str], list[str]]:
-    """
-    Fetch *url* and return (final_url, visible_text, hrefs, internal_links).
+def _http_error_label(exc: requests.exceptions.RequestException) -> str:
+    """Return a short human-readable error label for *exc*."""
+    if isinstance(exc, requests.exceptions.HTTPError) and exc.response is not None:
+        return f"HTTP {exc.response.status_code}"
+    if isinstance(exc, requests.exceptions.ConnectionError):
+        return "Connection Error"
+    if isinstance(exc, requests.exceptions.Timeout):
+        return "Timeout"
+    if isinstance(exc, requests.exceptions.TooManyRedirects):
+        return "Too Many Redirects"
+    return f"Request Error: {exc}"
 
-    *final_url* is the URL after following all redirects (HTTP-level AND
-    client-side meta-refresh / JavaScript location redirects).
-    Returns empty strings/lists on any error.
+
+def _fetch_page(
+    session: requests.Session, url: str, record_error: bool = False
+) -> tuple[str, str, list[str], list[str], str]:
+    """
+    Fetch *url* and return
+    ``(final_url, visible_text, hrefs, internal_links, error)``.
+
+    *record_error* — when True, HTTP/connection errors are captured and
+    returned in the error field.  When False (sub-pages), errors are logged
+    but the error field is always ``""`` so callers don't misattribute
+    sub-page 404s as the whole site being inaccessible.
+
+    For soft-error responses (4xx/5xx) that still carry HTML content, the
+    function attempts to parse and return the page body so detection can
+    still run.  A hard error (no body / connection failure) returns empty
+    values.
     """
     try:
         response = session.get(
             url,
             timeout=REQUEST_TIMEOUT_SECONDS,
-            verify=VERIFY_SSL,   # configurable via config.VERIFY_SSL
+            verify=VERIFY_SSL,
             allow_redirects=True,
         )
-        response.raise_for_status()
     except requests.exceptions.RequestException as exc:
-        logger.warning("Failed to fetch %s: %s", url, exc)
-        return "", "", [], []
+        error_label = _http_error_label(exc)
+        logger.warning("Failed to fetch %s: %s", url, error_label)
+        return "", "", [], [], error_label if record_error else ""
+
+    # Capture soft HTTP errors but still attempt to parse any HTML content.
+    error_label = ""
+    if not response.ok:
+        error_label = f"HTTP {response.status_code}"
+        logger.warning("HTTP %s for %s", response.status_code, url)
+        # If there's no usable body, bail out immediately.
+        content_type = response.headers.get("Content-Type", "")
+        if "html" not in content_type.lower() or not response.text.strip():
+            return "", "", [], [], error_label if record_error else ""
 
     final_url = response.url
     soup = BeautifulSoup(response.text, "lxml")
@@ -200,7 +232,8 @@ def _fetch_page(session: requests.Session, url: str) -> tuple[str, str, list[str
         if parsed.scheme in ("http", "https") and _is_same_origin(final_url, abs_url):
             internal_links.append(abs_url)
 
-    return final_url, visible_text, hrefs, internal_links
+    # Return error_label only if caller asked for it (seed URL only).
+    return final_url, visible_text, hrefs, internal_links, error_label if record_error else ""
 
 
 # ---------------------------------------------------------------------------
@@ -211,7 +244,7 @@ def _fetch_page(session: requests.Session, url: str) -> tuple[str, str, list[str
 def scrape_school(
     url: str,
     depth: int = DEFAULT_CRAWL_DEPTH,
-) -> list[dict]:
+) -> tuple[list[dict], list[str]]:
     """
     Crawl a school website up to *depth* levels and return scraped page data.
 
@@ -231,13 +264,17 @@ def scrape_school(
 
     Returns
     -------
-    list[dict]
-        Each element: ``{"url": str, "text": str, "hrefs": list[str]}``.
+    tuple[list[dict], list[str]]
+        ``(pages, access_errors)`` where *pages* is a list of
+        ``{"url": str, "text": str, "hrefs": list[str]}`` dicts and
+        *access_errors* is a deduplicated list of error strings encountered
+        while trying to fetch pages.
     """
     session = _make_session()
     pages: list[dict] = []
     visited: set[str] = set()
     non_relevant_urls: set[str] = set()  # collected during Phase 1 for Phase 2
+    access_errors: list[str] = []
 
     # ------------------------------------------------------------------
     # Phase 1 — homepage + relevant-URL pages only
@@ -256,7 +293,15 @@ def scrape_school(
 
         logger.debug("[Phase 1] Fetching (%d/%d): %s", len(pages) + 1, MAX_PAGES_PER_SCHOOL, normalized_queued)
 
-        final_url, text, hrefs, internal_links = _fetch_page(session, normalized_queued)
+        # Record errors only for the seed URL (depth==0); sub-page errors
+        # (404, 403, etc.) are normal during crawling and should not pollute
+        # the Access Error column when the school homepage itself is fine.
+        is_seed = (current_depth == 0)
+        final_url, text, hrefs, internal_links, error = _fetch_page(
+            session, normalized_queued, record_error=is_seed
+        )
+        if error and error not in access_errors:
+            access_errors.append(error)
         if not text:
             continue
 
@@ -289,7 +334,7 @@ def scrape_school(
 
     if found_match:
         logger.info("Crawled %d page(s) for %s (depth=%d)", len(pages), url, depth)
-        return pages
+        return pages, access_errors
 
     # ------------------------------------------------------------------
     # Phase 2 — non-relevant pages collected during Phase 1
@@ -310,7 +355,10 @@ def scrape_school(
 
         logger.debug("[Phase 2] Fetching (%d/%d): %s", len(pages) + 1, MAX_PAGES_PER_SCHOOL, normalized_queued)
 
-        final_url, text, hrefs, internal_links = _fetch_page(session, normalized_queued)
+        # Phase 2 pages are sub-pages; never count their errors.
+        final_url, text, hrefs, internal_links, _error = _fetch_page(
+            session, normalized_queued, record_error=False
+        )
         if not text:
             continue
 
@@ -331,4 +379,4 @@ def scrape_school(
         time.sleep(REQUEST_DELAY_SECONDS)
 
     logger.info("Crawled %d page(s) for %s (depth=%d)", len(pages), url, depth)
-    return pages
+    return pages, access_errors

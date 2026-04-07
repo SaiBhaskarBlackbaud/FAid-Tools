@@ -26,6 +26,7 @@ COLUMNS = [
     "Lost To (Competitor)",
     "Competitor Found On (URL)",
     "Our Product Found On (URL)",
+    "Access Error",
 ]
 
 
@@ -40,6 +41,8 @@ def _format_row(result: dict) -> list[str]:
     competitors: list[str] = result.get("competitors", [])
     competitor_url = result.get("competitor_url", "")
     our_product_url = result.get("our_product_url", "")
+    access_errors: list[str] = result.get("access_errors", [])
+    access_error_str = "; ".join(access_errors) if access_errors else ""
 
     status = "Yes" if uses_our and not competitors else "No"
     lost_to = ", ".join(competitors) if competitors else ("" if uses_our else "Unknown")
@@ -51,6 +54,7 @@ def _format_row(result: dict) -> list[str]:
         lost_to,
         competitor_url,
         our_product_url,
+        access_error_str,
     ]
 
 
@@ -86,8 +90,9 @@ def write_csv(results: list[dict], filepath: str) -> None:
 
 _HEADER_FILL = PatternFill("solid", fgColor="1F4E79")   # dark blue
 _HEADER_FONT = Font(bold=True, color="FFFFFF", size=11)
-_YES_FILL = PatternFill("solid", fgColor="C6EFCE")      # light green
-_NO_FILL = PatternFill("solid", fgColor="FFCCCC")        # light red
+_YES_FILL    = PatternFill("solid", fgColor="C6EFCE")    # light green
+_NO_FILL     = PatternFill("solid", fgColor="FFCCCC")    # light red
+_ERROR_FILL  = PatternFill("solid", fgColor="FFE699")    # amber — inaccessible
 
 
 def _auto_fit_column(ws: Any, col_index: int, header: str, values: list[str]) -> None:
@@ -139,9 +144,15 @@ def write_excel(results: list[dict], filepath: str) -> None:
         ws.append(row_data)
         row_num = ws.max_row
 
-        # Highlight row based on status
+        # Highlight row based on status; amber when only access errors recorded
         status = row_data[2]
-        fill = _YES_FILL if status == "Yes" else _NO_FILL
+        has_error = bool(row_data[6])   # Access Error column
+        if has_error and status == "No" and not row_data[3]:  # no competitor identified
+            fill = _ERROR_FILL
+        elif status == "Yes":
+            fill = _YES_FILL
+        else:
+            fill = _NO_FILL
         for col_idx in range(1, len(COLUMNS) + 1):
             cell = ws.cell(row=row_num, column=col_idx)
             cell.fill = fill
