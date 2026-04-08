@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAid — Financial Aid AI Review</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<header>
+    <div class="header-inner">
+        <div class="logo">FAid Tools <span>Financial Aid AI Review</span></div>
+        <nav>
+            <a class="nav-link" data-screen="upload">📤 Upload</a>
+            <a class="nav-link" data-screen="dashboard">📊 Dashboard</a>
+        </nav>
+    </div>
+</header>
+
+<main>
+
+    <!-- ===== UPLOAD SCREEN ===== -->
+    <div id="screen-upload" class="screen">
+        <div class="card">
+            <div class="card-title">📋 Submit Financial Aid Application</div>
+            <form id="upload-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="family-name">Family Name *</label>
+                        <input type="text" id="family-name" class="form-control" placeholder="e.g. Smith" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="grade">Student Grade</label>
+                        <select id="grade" class="form-control">
+                            <option value="0">Pre-K</option>
+                            <option value="1">Grade 1</option>
+                            <option value="2">Grade 2</option>
+                            <option value="3">Grade 3</option>
+                            <option value="4">Grade 4</option>
+                            <option value="5">Grade 5</option>
+                            <option value="6">Grade 6</option>
+                            <option value="7">Grade 7</option>
+                            <option value="8">Grade 8</option>
+                            <option value="9">Grade 9</option>
+                            <option value="10">Grade 10</option>
+                            <option value="11">Grade 11</option>
+                            <option value="12">Grade 12</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="dependents">Number of Dependents</label>
+                        <input type="number" id="dependents" class="form-control" value="1" min="0" max="20">
+                    </div>
+                </div>
+
+                <div class="card-title" style="margin-top:1rem">📁 Upload Documents</div>
+                <div class="upload-grid">
+                    <div class="upload-item">
+                        <label>Application Form *</label>
+                        <div class="drop-zone" data-doctype="ApplicationForm">
+                            <div class="drop-zone-icon">📄</div>
+                            <div class="drop-zone-label">Drop file here or click to upload</div>
+                            <input type="file" class="file-input" data-doctype="ApplicationForm" accept=".pdf,.doc,.docx">
+                        </div>
+                    </div>
+                    <div class="upload-item">
+                        <label>IRS Form 1040</label>
+                        <div class="drop-zone" data-doctype="Form1040">
+                            <div class="drop-zone-icon">📊</div>
+                            <div class="drop-zone-label">Drop file here or click to upload</div>
+                            <input type="file" class="file-input" data-doctype="Form1040" accept=".pdf">
+                        </div>
+                    </div>
+                    <div class="upload-item">
+                        <label>IRS Transcript</label>
+                        <div class="drop-zone" data-doctype="IRSTranscript">
+                            <div class="drop-zone-icon">📑</div>
+                            <div class="drop-zone-label">Drop file here or click to upload</div>
+                            <input type="file" class="file-input" data-doctype="IRSTranscript" accept=".pdf">
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 1.5rem">
+                    <button type="submit" id="btn-upload-submit" class="btn btn-primary" disabled>
+                        🚀 Submit &amp; Start AI Review
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== PROCESSING SCREEN ===== -->
+    <div id="screen-processing" class="screen">
+        <div class="card">
+            <div class="card-title">🤖 AI Review in Progress</div>
+            <div class="processing-container">
+                <div class="spinner"></div>
+                <h2>Analyzing Your Application</h2>
+                <p id="processing-status" style="color:#666; margin-top:0.5rem">Initializing...</p>
+
+                <div class="steps">
+                    <div class="step active">
+                        <div class="step-icon">📤</div>
+                        <div class="step-label">Documents Uploaded</div>
+                    </div>
+                    <div class="step">
+                        <div class="step-icon">🔍</div>
+                        <div class="step-label">Extracting Data</div>
+                    </div>
+                    <div class="step">
+                        <div class="step-icon">⚖️</div>
+                        <div class="step-label">Comparing Sources</div>
+                    </div>
+                    <div class="step">
+                        <div class="step-icon">✅</div>
+                        <div class="step-label">Review Complete</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== DASHBOARD SCREEN ===== -->
+    <div id="screen-dashboard" class="screen">
+        <div id="metrics-cards" class="metrics-grid">
+            <!-- Populated by JS -->
+        </div>
+
+        <div class="card">
+            <div class="card-title">📋 Review Queue</div>
+            <div id="dashboard-content">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Application #</th>
+                            <th>Family Name</th>
+                            <th>Status</th>
+                            <th>Assigned To</th>
+                            <th>Days in Queue</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="queue-table-body">
+                        <tr><td colspan="6" class="text-center">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== DETAIL SCREEN ===== -->
+    <div id="screen-detail" class="screen">
+        <div class="card">
+            <div class="card-title">📋 Application Details</div>
+            <div id="app-info"><!-- Populated by JS --></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">💰 Financial Data Comparison</div>
+            <div id="financial-comparison"><!-- Populated by JS --></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">🚩 AI-Identified Flags</div>
+            <div id="flags-list"><!-- Populated by JS --></div>
+        </div>
+
+        <div id="action-buttons"><!-- Populated by JS --></div>
+    </div>
+
+    <!-- ===== EMAIL SCREEN ===== -->
+    <div id="screen-email" class="screen">
+        <div class="card">
+            <div class="card-title">📧 Email Draft — Request Additional Documents</div>
+            <div id="email-content">
+                <div class="form-group">
+                    <label class="form-label">Recipient Email Address</label>
+                    <input type="email" id="recipient-email" class="form-control" placeholder="family@example.com">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email Body (editable)</label>
+                    <textarea id="email-draft-content" class="email-editor" placeholder="Loading email draft..."></textarea>
+                </div>
+                <div style="display:flex; gap:0.75rem; margin-top:1rem">
+                    <button class="btn btn-primary" onclick="sendEmail()">📤 Send Email</button>
+                    <button class="btn btn-secondary" onclick="showScreen('detail')">← Back to Review</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<script src="js/utils.js"></script>
+<script src="js/api-client.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
