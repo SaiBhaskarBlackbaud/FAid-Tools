@@ -89,8 +89,7 @@ public class AIReviewService : IAIReviewService
 
         if (review == null) return false;
 
-        var safeEmail = dto.RecipientEmail.Replace("\n", "").Replace("\r", "");
-        _logger.LogInformation("Email sent to {Email} for application {ApplicationId}", safeEmail, applicationId);
+        _logger.LogInformation("Email sent for application {ApplicationId}", applicationId);
 
         var app = await _context.Applications.FindAsync(applicationId);
         if (app != null)
@@ -159,7 +158,7 @@ public class AIReviewService : IAIReviewService
             {
                 var reported = appFormData.HouseholdIncome!.Value;
                 var from1040 = form1040Data.HouseholdIncome!.Value;
-                var variance = reported == 0 ? 0 : Math.Abs(reported - from1040) / reported;
+                var variance = reported == 0 ? (from1040 == 0 ? 0m : 1.0m) : Math.Abs(reported - from1040) / reported;
 
                 comparisonResults["IncomeMatch_AppVs1040"] = variance < 0.05m;
 
