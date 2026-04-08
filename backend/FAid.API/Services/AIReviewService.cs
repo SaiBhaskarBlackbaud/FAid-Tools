@@ -89,7 +89,8 @@ public class AIReviewService : IAIReviewService
 
         if (review == null) return false;
 
-        _logger.LogInformation("Email sent to {Email} for application {ApplicationId}", dto.RecipientEmail, applicationId);
+        var safeEmail = dto.RecipientEmail.Replace("\n", "").Replace("\r", "");
+        _logger.LogInformation("Email sent to {Email} for application {ApplicationId}", safeEmail, applicationId);
 
         var app = await _context.Applications.FindAsync(applicationId);
         if (app != null)
